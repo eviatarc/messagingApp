@@ -132,7 +132,7 @@ def checkValidMessage(message):
 @app.route('/writeMessage', methods=['POST'])
 def write_message():
     """
-    a functino that takes care of the writing message mechanism
+    a function that takes care of the writing message mechanism
     :return: that the message is sent if the relevant fields are valid, else returns a relevant ERROR MESSAGE
     """
     message = request.get_json()
@@ -361,5 +361,5 @@ def delete_message_by_Id(userName, messageId):
     resultMessage = deleteMessageById(messageId, userName)
     return resultMessage, 200
 
-
-app.run(host="localhost", port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, use_reloader=True)
