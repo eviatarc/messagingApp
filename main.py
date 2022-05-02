@@ -19,7 +19,7 @@ ERROR_RECEIVER_NOT_REGISTERED = "reveiver is not registered - message has not be
 ERROR_USERNAME_NOT_EXISTS = "username not exists"
 ERROR_NO_MESSAGE_TO_SHOW = "there is not messages to show"
 
-MSG_DELETED_SUCCESFULLY = "message deleted succesfully"
+MSG_DELETED_SUCCESFULLY = "message deleted successfully"
 MSG_NOT_DELETED = "message NOT deleted - this Id of a message doesn't exists"
 
 STARS_UNDERLINE = "\n ************************************** \n"
