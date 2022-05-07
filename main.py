@@ -1,18 +1,21 @@
-#---------------------------------------IMPORTS--------------------------------------------------------------
+# ---------------------------------------IMPORTS--------------------------------------------------------------
+import json
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import ForeignKey, create_engine, Column, Integer, String, DateTime, Boolean, and_
+from sqlalchemy import ForeignKey, create_engine, Column, Integer, String, DateTime, Boolean, and_, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-#---------------------------------------CONSTANTS--------------------------------------------------------------
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
+
+# ---------------------------------------CONSTANTS--------------------------------------------------------------
 MAX_USERNAME_LENGTH = 100
 MAX_MESSAGE_LENGTH = 500
 MAX_SUBJECT_LENGTH = 500
 
-#---------------------------------------MESSAGES--------------------------------------------------------------
+# ---------------------------------------MESSAGES--------------------------------------------------------------
 
 ERROR_SENDER_NOT_REGISTERED = "sender is not registered - message has not been sent, please register first"
 ERROR_RECEIVER_NOT_REGISTERED = "reveiver is not registered - message has not been sent"
@@ -22,15 +25,12 @@ ERROR_NO_MESSAGE_TO_SHOW = "there is not messages to show"
 MSG_DELETED_SUCCESFULLY = "message deleted successfully"
 MSG_NOT_DELETED = "message NOT deleted - this Id of a message doesn't exists"
 
-STARS_UNDERLINE = "\n ************************************** \n"
-
 MSG_SENDER = "\n sent by: "
 MSG_RECEIVER = "\n sent to: "
 MSG_DATE = "\n sent at: "
 MSG_SUBJECT = "\n subject: "
 MSG_BODY = "\n "
 MSG_ID = "\n message Id is: "
-
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///appMessagesDB.db'
@@ -42,22 +42,24 @@ session = Session()
 db = SQLAlchemy(app)
 Base = declarative_base()
 
+# Setup the Flask-JWT-Extended extension
+app.config["JWT_SECRET_KEY"] = "super-secret-key-for-jwt-extended-it's-so-secret-nobody-would-guess-it"
+jwt = JWTManager(app)
 
-#---------------------------------------CLASSES--------------------------------------------------------------
+
+# ---------------------------------------CLASSES--------------------------------------------------------------
 
 # create db model
 class User(Base):
-
     __tablename__ = 'Users'
 
-    userId = Column(Integer, primary_key=True, unique = True)
-    username = Column(String(MAX_USERNAME_LENGTH), nullable=False, unique = True)
+    userId = Column(Integer, primary_key=True, unique=True)
+    username = Column(String(MAX_USERNAME_LENGTH), nullable=False, unique=True)
     password = Column(String(100))
 
 
 # create db model
 class Message(Base):
-
     __tablename__ = 'Messages'
 
     id = Column(Integer, primary_key=True)
@@ -65,26 +67,54 @@ class Message(Base):
     receiver = Column(ForeignKey(User.userId))
     bodyOfTheMessage = Column(String(MAX_MESSAGE_LENGTH))
     subjectOfTheMessage = Column(String(MAX_SUBJECT_LENGTH))
-    creationDate = Column(DateTime, default=datetime.utcnow())
+    creationDate = Column(DateTime, default=datetime.now())
     isRead = Column(Boolean, default=False)
     isDeltedBySender = Column(Boolean, default=False)
     isDeltedByReceiver = Column(Boolean, default=False)
-
 
     def __str__(self):
         representationOfMessage = MSG_SENDER + convertIdToUsername(self.sender) + MSG_RECEIVER + \
                                   convertIdToUsername(self.receiver) + MSG_DATE + \
                                   self.creationDate.strftime('%m/%d/%Y, %H:%M:%S') + MSG_SUBJECT + \
-                                  self.subjectOfTheMessage + MSG_BODY + self.bodyOfTheMessage +  MSG_ID + \
+                                  self.subjectOfTheMessage + MSG_BODY + self.bodyOfTheMessage + MSG_ID + \
                                   str(self.id)
         return representationOfMessage
 
-
+    def to_json(self):
+        return {
+            'id': self.id,
+            'sender': convertIdToUsername(self.sender),
+            'receiver': convertIdToUsername(self.receiver),
+            'subject': self.subjectOfTheMessage,
+            'body': self.bodyOfTheMessage,
+            'created_at': self.creationDate,
+        }
 
 
 Base.metadata.create_all(engine)
 
-#---------------------------------------FUNCTIONS------------------------------------------------------------
+
+# Message.__table__.drop(engine)
+# User.__table__.drop(engine)
+
+
+# ---------------------------------------FUNCTIONS------------------------------------------------------------
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.json.get("username", None)
+    password = request.json.get("password", None)
+
+    target_user = session.query(User).filter(and_(User.username == username, User.password ==
+                                                  password)).first()
+    print(target_user)
+    if target_user is None:
+        return jsonify({"msg": "Bad username or password"}), 401
+
+    access_token = create_access_token(identity=target_user.userId)
+    # the returned token is used for any other actions as the user is logged in, it's valid only for 15
+    # minutes
+    return jsonify(access_token=access_token)
 
 
 def convertUsernameToId(username):
@@ -96,6 +126,7 @@ def convertUsernameToId(username):
     userWithThisName = session.query(User).filter(User.username == username).one()
     return userWithThisName.userId
 
+
 def convertIdToUsername(userId):
     """
     a function that converts a given ID of the user to the username
@@ -104,6 +135,7 @@ def convertIdToUsername(userId):
     """
     userWithThisId = session.query(User).filter(User.userId == userId).one()
     return userWithThisId.username
+
 
 def checkIfUserExistsByUsername(username):
     """
@@ -115,13 +147,14 @@ def checkIfUserExistsByUsername(username):
         return False
     return True
 
-def checkValidMessage(message):
+
+def checkValidMessage(message, relevantUserId):
     """
     a function that checks if the sender of the message and the receiver of the message exists/signed up
     :param message: the given message to check its sender and receiver
     :return: relevant ERROR MESSAGE if one of them doesn't exists, else return NONE
     """
-    if not checkIfUserExistsByUsername(message.get('sender')):
+    if not checkIfUserExistsByUsername(convertIdToUsername(relevantUserId)):
         return ERROR_SENDER_NOT_REGISTERED
 
     elif not checkIfUserExistsByUsername(message.get('receiver')):
@@ -129,20 +162,23 @@ def checkValidMessage(message):
 
     return None
 
+
 @app.route('/writeMessage', methods=['POST'])
+@jwt_required()
 def write_message():
     """
     a function that takes care of the writing message mechanism
     :return: that the message is sent if the relevant fields are valid, else returns a relevant ERROR MESSAGE
     """
     message = request.get_json()
-    errorsInTheMessage = checkValidMessage(message)
+    relevantIdOfSender = get_jwt_identity()
+    errorsInTheMessage = checkValidMessage(message, relevantIdOfSender)
     if errorsInTheMessage:
         return {'message': errorsInTheMessage}, 400
-    recievedMessage = Message(sender = convertUsernameToId(message.get('sender')),
-                              receiver = convertUsernameToId(message.get('receiver')),
-                              bodyOfTheMessage = message.get('body'),
-                              subjectOfTheMessage = message.get('subject'))
+    recievedMessage = Message(sender=relevantIdOfSender,
+                              receiver=convertUsernameToId(message.get('receiver')),
+                              bodyOfTheMessage=message.get('body'),
+                              subjectOfTheMessage=message.get('subject'))
     session.add(recievedMessage)
     session.commit()
     return {'message': "message sent"}, 200
@@ -157,12 +193,13 @@ def register_new_user():
     """
     received = request.get_json()
     if checkIfUserExistsByUsername(received.get('newUsername')):
-        #if the user exists then don't allow to register again
+        # if the user exists then don't allow to register again
         return {'message': "username already used - please try another username"}, 400
-    newUser = User(username = received.get('newUsername'), password = 'newPassword')
+    newUser = User(username=received.get('newUsername'), password=received.get('newPassword'))
     session.add(newUser)
     session.commit()
     return {'message': "new user created succesfully"}, 200
+
 
 def getAllSentMessaggesForUser(userId):
     """
@@ -171,14 +208,10 @@ def getAllSentMessaggesForUser(userId):
     :return: only the messages that the user sent and has not deleted
     """
     messagesHolder = session.query(Message).filter(and_(Message.sender == userId, Message.isDeltedBySender
-                                                        == False)).all()
-    resultString = STARS_UNDERLINE + 'Messages Sent     ' + STARS_UNDERLINE
-    resultString = resultString + 'number of messages sent: ' + str(session.query(Message).filter(and_(
-        Message.sender == userId, Message.isDeltedBySender  == False)).count()) + '\n'
-    for each in messagesHolder:
-        resultString = resultString + str(each) + '\n'
+                                                        is False)).all()
 
-    return resultString
+    return {'sent messages': [message.to_json() for message in messagesHolder]}
+
 
 def getAllReadMessaggesForUser(userId):
     """
@@ -187,16 +220,10 @@ def getAllReadMessaggesForUser(userId):
     :return: all the messages for this user that he already read
     """
     messagesHolder = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
-                                                   True, Message.isDeltedByReceiver == False)).all()
-    resultString = STARS_UNDERLINE + 'Messages recieved     ' + STARS_UNDERLINE
-    resultString = resultString + 'number of read messages : ' + str(session.query(Message).filter(and_(
-        Message.receiver == userId, Message.isRead == True, Message.isDeltedByReceiver == False)).count()) + '\n'
-    for each in messagesHolder:
-        resultString = resultString + str(each) + '\n'
-        # mark the message as been read after showing it
-        updateMessageAsReaded(each)
-    session.commit()
-    return resultString
+                                                        True, Message.isDeltedByReceiver == False)).all()
+
+    return {'read messages': [message.to_json() for message in messagesHolder]}
+
 
 def getUnreadedMessaggesForUser(userId):
     """
@@ -205,15 +232,13 @@ def getUnreadedMessaggesForUser(userId):
     :return: all the unread messages for this user, after showing them, all of them ,marked as read
     """
     messagesHolder = session.query(Message).filter(Message.receiver == userId, Message.isRead == False).all()
-    resultString = STARS_UNDERLINE +'New messages     ' + STARS_UNDERLINE
-    resultString = resultString + 'number of new messages recieved: ' + str(session.query(Message).filter(
-        Message.receiver == userId, Message.isRead == False).count()) + '\n'
+
     for each in messagesHolder:
-        resultString = resultString + str(each) + '\n'
         # mark the message as been readed after showing it
         updateMessageAsReaded(each)
-    session.commit()
-    return resultString
+
+    return {'unread messages': [message.to_json() for message in messagesHolder]}
+
 
 # mark the message as been readed after showing it
 def updateMessageAsReaded(singleMessage):
@@ -223,30 +248,38 @@ def updateMessageAsReaded(singleMessage):
     :return: void
     """
     singleMessage.isRead = True
+    session.commit()
 
-@app.route('/getAllMessagesForUser/<userName>', methods=['GET'])
-def get_all_messages_for_user(userName):
+
+@app.route('/getAllMessages', methods=['GET'])
+@jwt_required()
+def get_all_messages_for_user():
     """
     a function that returns all the messages that are sent by or sent to a given user, also those he hasn't
     read yet, after showing them will mark them as read, uses different help functions, not showing the
     ones that he deleted (for himself)
-    :param userName: the given user name
     :return: all the messages that are relevant to the user but not the ones he deleted for him,
     else returns a relevant ERROR MESSAGE
     """
-    #first checking if the user name that has been given exists in the system
-    if not checkIfUserExistsByUsername(userName):
-        return {'message': ERROR_USERNAME_NOT_EXISTS}, 400
-    relevantUserId = convertUsernameToId(userName)
 
-    #gathering all relevant messages as a string
-    allMessagesRepresentation = getUnreadedMessaggesForUser(relevantUserId) + '\n' + \
-                                getAllReadMessaggesForUser(relevantUserId) + '\n' + \
-                                getAllSentMessaggesForUser(relevantUserId)
-    return allMessagesRepresentation, 200
+    relevantUserId = get_jwt_identity()
 
-@app.route('/getAllUnreadMessagesForUser/<userName>', methods=['GET'])
-def get_all_Unread_messages(userName):
+    # gathering all relevant messages
+    readMessages = getAllReadMessaggesForUser(relevantUserId)
+    unreadMessages = getUnreadedMessaggesForUser(relevantUserId)
+    sentMessages = getAllSentMessaggesForUser(relevantUserId)
+
+    resuletDictionary = {}
+    resuletDictionary.update(unreadMessages)
+    resuletDictionary.update(readMessages)
+    resuletDictionary.update(sentMessages)
+
+    return resuletDictionary, 200
+
+
+@app.route('/getAllUnreadMessages', methods=['GET'])
+@jwt_required()
+def get_all_Unread_messages():
     """
     a function that is responsible for the mechanism of this URL using a help function that returns the
     unread messages
@@ -254,13 +287,13 @@ def get_all_Unread_messages(userName):
     :return: all the unread messages for a given user and later mark them as read, if the user does not
     exists will return a relevant ERROR MESSAGE
     """
-    if not checkIfUserExistsByUsername(userName):
-        return {'message': ERROR_USERNAME_NOT_EXISTS}, 400
 
-    relevantUserId = convertUsernameToId(userName)
-    unreadedMessagesRepresentation = getUnreadedMessaggesForUser(relevantUserId)
+    relevantUserId = get_jwt_identity()
 
-    return unreadedMessagesRepresentation , 200
+    return getUnreadedMessaggesForUser(relevantUserId), 200
+
+
+# todo: to change the return values
 
 def getSingleMessageForUser(userId):
     """
@@ -271,37 +304,47 @@ def getSingleMessageForUser(userId):
     :return: a string that describes a single message sent to the user as described above, if there is not
     message to show - will return a relevant message
     """
-    #if there is a message that is unread it will show one like that and mark it as readed
-    if not (session.query(Message).filter(Message.receiver == userId, Message.isRead == False).count())==0:
+    # if there is a message that is unread it will show one like that and mark it as read - will show the
+    # oldest one
+    if not (session.query(Message).filter(Message.receiver == userId, Message.isRead == False).count()) == 0:
         unreadedMessage = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
-                                                   False, Message.isDeltedByReceiver == False)).first()
+                                                             False,
+                                                             Message.isDeltedByReceiver == False)).first()
         updateMessageAsReaded(unreadedMessage)
         session.commit()
-        return str(unreadedMessage)
-    # else if there is no unreaded messages, and there is readed messages
-    elif not (session.query(Message).filter(Message.receiver == userId, Message.isRead == True).count())==0:
+        return unreadedMessage
+    # else if there is no unread messages, and there is read messages it will show the most recent one
+    elif not (session.query(Message).filter(Message.receiver == userId, Message.isRead == True).count()) == 0:
         readedMessage = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
-                                                   True, Message.isDeltedByReceiver == False)).first()
-        session.commit()
-        return str(readedMessage)
+                                                           True, Message.isDeltedByReceiver ==
+                                                           False)).order_by(desc(Message.id)).first()
+        if readedMessage is None:
+            return ERROR_NO_MESSAGE_TO_SHOW
+        return readedMessage
     else:
         return ERROR_NO_MESSAGE_TO_SHOW
 
-@app.route('/readMessage/<userName>', methods=['GET'])
-def get_message_for_user(userName):
+
+@app.route('/readMessage', methods=['GET'])
+@jwt_required()
+def get_message_for_user():
     """
     a function that is responsible for the mechanism of the relevant URL, using a help function that is
     described above
-    :param userName: the given username
     :return: a relevant message with priority to unread message, if there is no such it's return the first
     message that the user received, else return that there is not messages to show
     """
-    if not checkIfUserExistsByUsername(userName):
-        return {'message': ERROR_USERNAME_NOT_EXISTS}, 400
-    relevantUserId = convertUsernameToId(userName)
-    relevantMessage = getSingleMessageForUser(relevantUserId)
+    # if not checkIfUserExistsByUsername(userName):
+    #     return {'message': ERROR_USERNAME_NOT_EXISTS}, 400
+    # relevantUserId = convertUsernameToId(userName)
 
-    return str(relevantMessage), 200
+    relevantUserId = get_jwt_identity()
+    relevantMessage = getSingleMessageForUser(relevantUserId)
+    if relevantMessage == ERROR_NO_MESSAGE_TO_SHOW:
+        return {"message": relevantMessage}, 200
+    # todo: to change the return value if the internal function return an error!!!!
+    return relevantMessage.to_json(), 200
+
 
 def deleteMessageById(messageId, userName):
     """
@@ -316,50 +359,56 @@ def deleteMessageById(messageId, userName):
     he is not relevant
     """
     resultMessage = ''
-    #checking if such a message exists
+    # checking if such a message exists
     if session.query(Message).filter(Message.id == messageId).count() == 1:
         relevantMessage = session.query(Message).filter(Message.id == messageId).first()
-        #if the sender is also the receiver would like to delete it, message will be deleted from dataBase
+        # if the sender is also the receiver would like to delete it, message will be deleted from dataBase
         if (relevantMessage.sender == userName and relevantMessage.receiver == userName):
             resultMessage = MSG_DELETED_SUCCESFULLY
             session.query(Message).filter(Message.id == messageId).delete()
             session.commit()
             return resultMessage
-        #if the sender would like to delete it, it will be deleted for him (as a sender)
+        # if the sender would like to delete it, it will be deleted for him (as a sender)
         if (convertUsernameToId(userName) == relevantMessage.sender and relevantMessage.isDeltedBySender ==
-            False):
+                False):
             relevantMessage.isDeltedBySender = True
             resultMessage = MSG_DELETED_SUCCESFULLY
         elif ((convertUsernameToId(userName) == relevantMessage.sender and relevantMessage.isDeltedBySender ==
-            True)):
+               True)):
             resultMessage = MSG_NOT_DELETED
 
-        #if the receiver would like to delete it, it will be deleted for him (as a sender)
+        # if the receiver would like to delete it, it will be deleted for him (as a sender)
 
         if (convertUsernameToId(userName) == relevantMessage.receiver and
                 relevantMessage.isDeltedByReceiver == False):
             relevantMessage.isDeltedByReceiver = True
             resultMessage = MSG_DELETED_SUCCESFULLY
-        elif ((convertUsernameToId(userName) == relevantMessage.receiver and relevantMessage.isDeltedByReceiver ==
-            True)):
+        elif (
+                (convertUsernameToId(
+                    userName) == relevantMessage.receiver and relevantMessage.isDeltedByReceiver ==
+                 True)):
             resultMessage = MSG_NOT_DELETED
-        if(relevantMessage.isDeltedBySender == True and relevantMessage.isDeltedByReceiver == True):
+        if (relevantMessage.isDeltedBySender == True and relevantMessage.isDeltedByReceiver == True):
             session.query(Message).filter(Message.id == messageId).delete()
         session.commit()
         return resultMessage
     else:
         return MSG_NOT_DELETED
 
-@app.route('/deleteMessage/<userName>/<messageId>', methods=['GET'])
-def delete_message_by_Id(userName, messageId):
+
+@app.route('/deleteMessage/<messageId>', methods=['DELETE'])
+@jwt_required()
+def delete_message_by_Id(messageId):
     """
     a function that is responsible for the mechanism of the relevant URL
     :param userName: the given username that likes to dlete a message
     :param messageId: the message the user wants to delete
     :return: a result message of the helper function "deleteMessageById"
     """
-    resultMessage = deleteMessageById(messageId, userName)
-    return resultMessage, 200
+    relevantUserId = get_jwt_identity()
+    resultMessage = deleteMessageById(messageId, convertIdToUsername(relevantUserId))
+    return {"message": resultMessage}, 200
+
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=True)
+    app.run(debug=True, use_reloader=True, port=5000)
