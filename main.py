@@ -34,7 +34,7 @@ MSG_ID = "\n message Id is: "
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///appMessagesDB.db'
-engine = create_engine('sqlite:///appMessagesDB.db')
+engine = create_engine('sqlite:///appMessagesDB.db?check_same_thread=False')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -92,10 +92,6 @@ class Message(Base):
 
 
 Base.metadata.create_all(engine)
-
-
-# Message.__table__.drop(engine)
-# User.__table__.drop(engine)
 
 
 # ---------------------------------------FUNCTIONS------------------------------------------------------------
@@ -225,7 +221,7 @@ def getAllReadMessaggesForUser(userId):
     return {'read messages': [message.to_json() for message in messagesHolder]}
 
 
-def getUnreadedMessaggesForUser(userId):
+def getUnreadedMessagesForUser(userId):
     """
     a function that returns all the unread messages that's been sent to this user
     :param userId: the given userId that the messages sent to
@@ -234,13 +230,12 @@ def getUnreadedMessaggesForUser(userId):
     messagesHolder = session.query(Message).filter(Message.receiver == userId, Message.isRead == False).all()
 
     for each in messagesHolder:
-        # mark the message as been readed after showing it
+        # mark the message as been read after showing it
         updateMessageAsReaded(each)
 
     return {'unread messages': [message.to_json() for message in messagesHolder]}
 
 
-# mark the message as been readed after showing it
 def updateMessageAsReaded(singleMessage):
     """
     a function that mark a given message as read
@@ -266,7 +261,7 @@ def get_all_messages_for_user():
 
     # gathering all relevant messages
     readMessages = getAllReadMessaggesForUser(relevantUserId)
-    unreadMessages = getUnreadedMessaggesForUser(relevantUserId)
+    unreadMessages = getUnreadedMessagesForUser(relevantUserId)
     sentMessages = getAllSentMessaggesForUser(relevantUserId)
 
     resuletDictionary = {}
@@ -283,14 +278,13 @@ def get_all_Unread_messages():
     """
     a function that is responsible for the mechanism of this URL using a help function that returns the
     unread messages
-    :param userName: the given username
-    :return: all the unread messages for a given user and later mark them as read, if the user does not
-    exists will return a relevant ERROR MESSAGE
+    :return: all the unread messages for a given user (a logged in user) and later mark them as read,
+    if the user does not exists will return a relevant ERROR MESSAGE
     """
 
     relevantUserId = get_jwt_identity()
 
-    return getUnreadedMessaggesForUser(relevantUserId), 200
+    return getUnreadedMessagesForUser(relevantUserId), 200
 
 
 # todo: to change the return values
@@ -298,7 +292,7 @@ def get_all_Unread_messages():
 def getSingleMessageForUser(userId):
     """
     a function that return a single message for a user, it's priority is to show the unread messages first
-    (one by one every time it's called) after showing all unreaded messages for a user it will show the
+    (one by one every time it's called) after showing all unread messages for a user it will show the
     first message it's recieved, after showing an unread message it will mark it as been read
     :param userId: the given userId
     :return: a string that describes a single message sent to the user as described above, if there is not
@@ -307,12 +301,12 @@ def getSingleMessageForUser(userId):
     # if there is a message that is unread it will show one like that and mark it as read - will show the
     # oldest one
     if not (session.query(Message).filter(Message.receiver == userId, Message.isRead == False).count()) == 0:
-        unreadedMessage = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
-                                                             False,
-                                                             Message.isDeltedByReceiver == False)).first()
-        updateMessageAsReaded(unreadedMessage)
+        unreadMessage = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
+                                                           False,
+                                                            Message.isDeltedByReceiver == False)).first()
+        updateMessageAsReaded(unreadMessage)
         session.commit()
-        return unreadedMessage
+        return unreadMessage
     # else if there is no unread messages, and there is read messages it will show the most recent one
     elif not (session.query(Message).filter(Message.receiver == userId, Message.isRead == True).count()) == 0:
         readedMessage = session.query(Message).filter(and_(Message.receiver == userId, Message.isRead ==
@@ -334,9 +328,6 @@ def get_message_for_user():
     :return: a relevant message with priority to unread message, if there is no such it's return the first
     message that the user received, else return that there is not messages to show
     """
-    # if not checkIfUserExistsByUsername(userName):
-    #     return {'message': ERROR_USERNAME_NOT_EXISTS}, 400
-    # relevantUserId = convertUsernameToId(userName)
 
     relevantUserId = get_jwt_identity()
     relevantMessage = getSingleMessageForUser(relevantUserId)
@@ -401,7 +392,6 @@ def deleteMessageById(messageId, userName):
 def delete_message_by_Id(messageId):
     """
     a function that is responsible for the mechanism of the relevant URL
-    :param userName: the given username that likes to dlete a message
     :param messageId: the message the user wants to delete
     :return: a result message of the helper function "deleteMessageById"
     """

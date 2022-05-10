@@ -1,0 +1,34 @@
+welcome to my messaging app
+
+here we can find the required mechanism for operating a simple messaging application
+you can find all of the logic in main.py, I chose to use SQLite database, flask web framework,
+SQLalchemy as ORM (object relational mapper)
+
+{HOW TO OPERATE IT?}
+
+you can find the app at https://mysterious-garden-17650.herokuapp.com or run it locally on your computer.
+please see the attached postman request collection.
+
+1. please register a new user using registerUser endpoint (remark: register 2 new users so you will be
+able to send a message - the system doesn't support sending messages to unregistered users).
+2. login: login the registered user and save the token you receive in the response. The token will last 15
+min. Add it to every request to Authorization header following 'Bearer ' phrase.
+3. write a message using writMessage endpoint to your desire - the system will recognize the logged in user
+as a sender, and will add it automatically to the message (only logged in users can send a message).
+4. viewing messages: using the getAllMessages endpoint you can see all the sent messages, read messages
+and unread messages.
+5. view only unread messages: using the getAllUnreadMessages endpoint you can view all the unread messages
+that has been received, one showing an unread message it will be marked as read and not be shown on this
+endpoint.
+6. view a singe message: using the readMessage endpoint you can view a single message, it will first show
+you the unread ones, will show the oldest unread message first, after it the app will mark it as read and the
+next request will return the next a newer unread message, if there are no unread messages, it will show the
+newest read message.
+7. deleting messages: use the deleteMessage/<id> end point to delete a message by id, a message can by deleted
+ for the sender/receiver separately, and if deleted for one it will not show it to him, if both deleted this
+ message - it will be deleted from the database.
+
+where to improve the code:
+1. divide it into separate files (config files, run file, models, routes)
+2. adding new features -like recover password (using a given email address at the registration)
+

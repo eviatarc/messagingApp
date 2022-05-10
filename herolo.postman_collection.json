@@ -1,0 +1,283 @@
+{
+	"info": {
+		"_postman_id": "50e80340-d5ae-48e4-80b1-c2ff3cc07d32",
+		"name": "herolo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "registerUser",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"newUsername\": \"test1\", \"newPassword\": \"test\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/registerUser",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"registerUser"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"test1\",\r\n    \"password\": \"test\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:5000/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"login"
+					],
+					"query": [
+						{
+							"key": "username",
+							"value": "test",
+							"disabled": true
+						},
+						{
+							"key": "password",
+							"value": "test",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "deleteMessage",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1MjE1NjA1MiwianRpIjoiZTY2MzFmM2YtMGY0Ny00MTQ5LThiZjQtZjBmNmY4YTI5YWEyIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNjUyMTU2MDUyLCJleHAiOjE2NTIxNTY5NTJ9.RpZGmgVdG1EIGm-JwTOuEIRLgX3qBEA8ZFDa90nX2TM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/deleteMessage/<id>",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"deleteMessage",
+						"<id>"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getAllMessages",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1MjE1NjA1MiwianRpIjoiZTY2MzFmM2YtMGY0Ny00MTQ5LThiZjQtZjBmNmY4YTI5YWEyIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNjUyMTU2MDUyLCJleHAiOjE2NTIxNTY5NTJ9.RpZGmgVdG1EIGm-JwTOuEIRLgX3qBEA8ZFDa90nX2TM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/getAllMessages?",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"getAllMessages"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "writeMessage",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1MjE1NjA1MiwianRpIjoiZTY2MzFmM2YtMGY0Ny00MTQ5LThiZjQtZjBmNmY4YTI5YWEyIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNjUyMTU2MDUyLCJleHAiOjE2NTIxNTY5NTJ9.RpZGmgVdG1EIGm-JwTOuEIRLgX3qBEA8ZFDa90nX2TM",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"sender\": \"test\", \"receiver\": \"test1\", \"subject\":\"BLINKY BILL 2 \",\"body\": \"sababa ya mahrofa!\"}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/writeMessage",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"writeMessage"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "readMessage",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1MTkwNTQ5NCwianRpIjoiNWI2MTIxMmUtNjI0NS00MzU5LTljMTYtMDc1YTM4YTI2ZmZiIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MSwibmJmIjoxNjUxOTA1NDk0LCJleHAiOjE2NTE5MDYzOTR9.Owvd3fCNnNaKkvceCWi19HTC3uDlJq36miq10ZN25nY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/readMessage",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"readMessage"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getAllUnreadMessages",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTY1MjE1ODcwMCwianRpIjoiMjQwNTg1NDMtMWY2Yy00MjBlLWFjODQtZmNlMmMwMjcxNTU1IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6MywibmJmIjoxNjUyMTU4NzAwLCJleHAiOjE2NTIxNTk2MDB9.MW7gyVHoKFyhAvgLR6bhmLc1Y4FiwK5uIISiDAUxxVk",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://mysterious-garden-17650.herokuapp.com/getAllUnreadMessages",
+					"protocol": "https",
+					"host": [
+						"mysterious-garden-17650",
+						"herokuapp",
+						"com"
+					],
+					"path": [
+						"getAllUnreadMessages"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
